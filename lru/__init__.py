@@ -5,6 +5,24 @@ import threading
 import weakref
 from contextlib import contextmanager
 
+
+def lru_cache_function_tuple(ax_size=1024, expiration=15*60):
+    """
+    >>> @lru_cache_function(3, 1)
+    ... def f(x):
+    ...    print "Calling f(" + str(x) + ")"
+    ...    return x
+    >>> f(3)
+    Calling f(3)
+    3
+    >>> f(3)
+    3
+    """
+    def wrapper(func):
+        return LRUCachedFunctionTuple(func, LRUCacheDict(max_size, expiration))
+    return wrapper
+
+
 def lru_cache_function(max_size=1024, expiration=15*60):
     """
     >>> @lru_cache_function(3, 1)
@@ -248,6 +266,59 @@ class LRUCachedFunction(object):
             value = self.function(*args, **kwargs)
             self.cache[key] = value
             return value
+
+
+class LRUCachedFunctionTuple(object):
+    """
+    A memoized function, backed by an LRU cache.
+
+    >>> def f(x):
+    ...    print "Calling f(" + str(x) + ")"
+    ...    return x
+    >>> f = LRUCachedFunction(f, LRUCacheDict(max_size=3, expiration=3) )
+    >>> f(3)
+    Calling f(3)
+    3
+    >>> f(3)
+    3
+    >>> import time
+    >>> time.sleep(4) #Cache should now be empty, since expiration time is 3.
+    >>> f(3)
+    Calling f(3)
+    3
+    >>> f(4)
+    Calling f(4)
+    4
+    >>> f(5)
+    Calling f(5)
+    5
+    >>> f(3) #Still in cache, so no print statement. At this point, 4 is the least recently used.
+    3
+    >>> f(6)
+    Calling f(6)
+    6
+    >>> f(4) #No longer in cache - 4 is the least recently used, and there are at least 3 others items in cache [3,4,5,6].
+    Calling f(4)
+    4
+
+    """
+    def __init__(self, function, cache=None):
+        if cache:
+            self.cache = cache
+        else:
+            self.cache = LRUCacheDict()
+        self.function = function
+        self.__name__ = self.function.__name__
+
+    def __call__(self, *args, **kwargs):
+        key = repr( (args, kwargs) ) + "#" + self.__name__ #In principle a python repr(...) should not return any # characters.
+        try:
+            return self.cache[tuple(key)]
+        except KeyError:
+            value = self.function(*args, **kwargs)
+            self.cache[tuple(key)] = value
+            return value
+
 
 if __name__ == "__main__":
     import doctest
