@@ -6,7 +6,7 @@ import weakref
 from contextlib import contextmanager
 
 
-def lru_cache_function_tuple(ax_size=1024, expiration=15*60):
+def lru_cache_function_tuple(max_size=1024, expiration=15*60):
     """
     >>> @lru_cache_function(3, 1)
     ... def f(x):
